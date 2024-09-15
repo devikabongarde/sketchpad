@@ -65,11 +65,12 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
 
         // Shape icons and options
         String[] shapeOptions = {"Freehand", "Line", "Rectangle", "Oval", "Text"};
+        @SuppressWarnings("unused")
         String[] shapeIconPaths = {"/icons/freehand.png", "/icons/line.png", "/icons/rectangle.png", "/icons/oval.png", "/icons/text.png"};
         for (int i = 0; i < shapeOptions.length; i++) {
             JMenuItem item = new JMenuItem(shapeOptions[i]);
             // Optionally set icons if available
-            // item.setIcon(new ImageIcon(getClass().getResource(shapeIconPaths[i])));
+            item.setIcon(new ImageIcon(getClass().getResource(shapeIconPaths[i])));
             item.addActionListener(this);
             editMenu.add(item);
         }
@@ -95,11 +96,12 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
 
         // Extra tools icons
         String[] toolOptions = {"Erase", "Color Picker", "Fill Color"};
+        @SuppressWarnings("unused")
         String[] toolIconPaths = {"/icons/eraser.png", "/icons/colorpicker.png", "/icons/fillcolor.png"};
         for (int i = 0; i < toolOptions.length; i++) {
             JMenuItem item = new JMenuItem(toolOptions[i]);
             // Optionally set icons if available
-            // item.setIcon(new ImageIcon(getClass().getResource(toolIconPaths[i])));
+            item.setIcon(new ImageIcon(getClass().getResource(toolIconPaths[i])));
             item.addActionListener(this);
             editMenu.add(item);
         }
