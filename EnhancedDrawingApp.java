@@ -15,10 +15,13 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
     private int startX, startY, endX, endY;
     private BufferedImage canvasImage;
     private Graphics2D g2d;
-    private static final int ERASER_SIZE = 20; // Size of the eraser
+    private static final int MIN_ERASER_SIZE = 10;
+    private int eraserSize = 20; // Eraser size
+    private int strokeThickness = 2; // Thickness for freehand tool
     private Shape currentShape;
-    private ArrayList<Shape> shapes = new ArrayList<>(); // List to store drawn shapes
-    private ArrayList<Color> fillColors = new ArrayList<>(); // Corresponding fill colors for shapes
+    private ArrayList<Shape> shapes = new ArrayList<>();
+    private ArrayList<Color> fillColors = new ArrayList<>();
+    private Cursor customCursor;
 
     public EnhancedDrawingApp() {
         setTitle("Enhanced Drawing App");
@@ -32,26 +35,26 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         g2d.setColor(Color.WHITE);
         g2d.fillRect(0, 0, canvasImage.getWidth(), canvasImage.getHeight());
         g2d.setColor(currentColor);
+        g2d.setStroke(new BasicStroke(strokeThickness));
 
         JPanel canvasPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                // Draw the canvas image
                 g.drawImage(canvasImage, 0, 0, getWidth(), getHeight(), null);
-                
-                // Draw each shape with its corresponding fill color
-                for (int i = 0; i < shapes.size(); i++) {
-                    Shape shape = shapes.get(i);
-                    Color fillColor = fillColors.get(i);
-                    Graphics2D g2d = (Graphics2D) g.create();
-                    g2d.setColor(currentColor);
-                    g2d.draw(shape);
-                    g2d.setColor(fillColor);
-                    g2d.fill(shape);
-                    g2d.dispose();
+
+                // Draw shape previews (like MS Paint)
+                if (currentShape != null && (currentAction.equals("Line") || currentAction.equals("Rectangle") || currentAction.equals("Oval"))) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setColor(currentColor);
+                    g2.setStroke(new BasicStroke(strokeThickness));
+                    g2.draw(currentShape);
+                    g2.dispose();
                 }
             }
         };
+
         canvasPanel.setPreferredSize(new Dimension(1920, 900));
         canvasPanel.addMouseListener(this);
         canvasPanel.addMouseMotionListener(this);
@@ -60,23 +63,27 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         JMenuBar menuBar = new JMenuBar();
         JMenu editMenu = new JMenu("Edit");
 
-        // Shape icons
+        // Shape icons and options
         String[] shapeOptions = {"Freehand", "Line", "Rectangle", "Oval", "Text"};
         String[] shapeIconPaths = {"/icons/freehand.png", "/icons/line.png", "/icons/rectangle.png", "/icons/oval.png", "/icons/text.png"};
         for (int i = 0; i < shapeOptions.length; i++) {
-            JMenuItem item = new JMenuItem(shapeOptions[i], new ImageIcon(getClass().getResource(shapeIconPaths[i])));
+            JMenuItem item = new JMenuItem(shapeOptions[i]);
+            // Optionally set icons if available
+            // item.setIcon(new ImageIcon(getClass().getResource(shapeIconPaths[i])));
             item.addActionListener(this);
             editMenu.add(item);
         }
 
+        editMenu.addSeparator();
+
         // Color icons
-        String[] colorNames = {"Black", "Red", "Green", "Blue", "Yellow", "Orange", "Pink", "Cyan", "Magenta", "Gray", 
-                                "Dark Gray", "Light Gray", "White", "Brown", "Purple", "Violet", "Gold", "Silver", "Teal", "Lime"};
+        String[] colorNames = {"Black", "Red", "Green", "Blue", "Yellow", "Orange", "Pink", "Cyan", "Magenta", "Gray",
+                "Dark Gray", "Light Gray", "White", "Brown", "Purple", "Violet", "Gold", "Silver", "Teal", "Lime"};
         Color[] colors = {Color.BLACK, Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.ORANGE, Color.PINK, Color.CYAN,
-                          Color.MAGENTA, Color.GRAY, Color.DARK_GRAY, Color.LIGHT_GRAY, Color.WHITE, new Color(139, 69, 19), 
-                          new Color(128, 0, 128), new Color(238, 130, 238), new Color(255, 215, 0), new Color(192, 192, 192),
-                          new Color(0, 128, 128), new Color(50, 205, 50)};
-        
+                Color.MAGENTA, Color.GRAY, Color.DARK_GRAY, Color.LIGHT_GRAY, Color.WHITE, new Color(139, 69, 19),
+                new Color(128, 0, 128), new Color(238, 130, 238), new Color(255, 215, 0), new Color(192, 192, 192),
+                new Color(0, 128, 128), new Color(50, 205, 50)};
+
         for (int i = 0; i < colorNames.length; i++) {
             JMenuItem item = new JMenuItem(colorNames[i]);
             item.setIcon(new ColorIcon(colors[i]));
@@ -84,11 +91,15 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
             editMenu.add(item);
         }
 
+        editMenu.addSeparator();
+
         // Extra tools icons
         String[] toolOptions = {"Erase", "Color Picker", "Fill Color"};
         String[] toolIconPaths = {"/icons/eraser.png", "/icons/colorpicker.png", "/icons/fillcolor.png"};
         for (int i = 0; i < toolOptions.length; i++) {
-            JMenuItem item = new JMenuItem(toolOptions[i], new ImageIcon(getClass().getResource(toolIconPaths[i])));
+            JMenuItem item = new JMenuItem(toolOptions[i]);
+            // Optionally set icons if available
+            // item.setIcon(new ImageIcon(getClass().getResource(toolIconPaths[i])));
             item.addActionListener(this);
             editMenu.add(item);
         }
@@ -96,17 +107,47 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         menuBar.add(editMenu);
         setJMenuBar(menuBar);
 
-        // Bottom panel for Save and Reset buttons
+        // Bottom panel for Save, Reset, and Eraser Size and Thickness controls
         JPanel bottomPanel = new JPanel();
+
         JButton saveButton = new JButton("Save");
         saveButton.addActionListener(this);
         JButton resetButton = new JButton("Reset");
         resetButton.addActionListener(this);
+
         bottomPanel.add(saveButton);
         bottomPanel.add(resetButton);
 
+        // Eraser Size Control
+        JLabel eraserLabel = new JLabel("Eraser Size:");
+        JSlider eraserSlider = new JSlider(MIN_ERASER_SIZE, 100, eraserSize);
+        eraserSlider.setMajorTickSpacing(10);
+        eraserSlider.setPaintTicks(true);
+        eraserSlider.setPaintLabels(true);
+        eraserSlider.addChangeListener(e -> eraserSize = eraserSlider.getValue());
+
+        bottomPanel.add(eraserLabel);
+        bottomPanel.add(eraserSlider);
+
+        // Stroke Thickness Control
+        JLabel thicknessLabel = new JLabel("Stroke Thickness:");
+        JSlider thicknessSlider = new JSlider(1, 20, strokeThickness);
+        thicknessSlider.setMajorTickSpacing(1);
+        thicknessSlider.setPaintTicks(true);
+        thicknessSlider.setPaintLabels(true);
+        thicknessSlider.addChangeListener(e -> {
+            strokeThickness = thicknessSlider.getValue();
+            g2d.setStroke(new BasicStroke(strokeThickness));
+        });
+
+        bottomPanel.add(thicknessLabel);
+        bottomPanel.add(thicknessSlider);
+
         add(canvasPanel, BorderLayout.CENTER);
         add(bottomPanel, BorderLayout.SOUTH);
+
+        // Set default cursor
+        setCustomCursor(Cursor.CROSSHAIR_CURSOR);
     }
 
     @Override
@@ -120,10 +161,11 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
             case "Oval":
             case "Text":
                 currentAction = command;
+                setCustomCursor(Cursor.CROSSHAIR_CURSOR);
                 break;
 
-            case "Black": case "Red": case "Green": case "Blue": case "Yellow": case "Orange": case "Pink": 
-            case "Cyan": case "Magenta": case "Gray": case "Dark Gray": case "Light Gray": case "White": 
+            case "Black": case "Red": case "Green": case "Blue": case "Yellow": case "Orange": case "Pink":
+            case "Cyan": case "Magenta": case "Gray": case "Dark Gray": case "Light Gray": case "White":
             case "Brown": case "Purple": case "Violet": case "Gold": case "Silver": case "Teal": case "Lime":
                 currentColor = getColorByName(command);
                 g2d.setColor(currentColor);
@@ -139,6 +181,7 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
 
             case "Erase":
                 currentAction = "Erase";
+                setCustomCursor(Cursor.HAND_CURSOR); // Pass the int constant
                 break;
 
             case "Color Picker":
@@ -182,6 +225,11 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         }
     }
 
+    private void setCustomCursor(int cursorType) {
+        customCursor = Cursor.getPredefinedCursor(cursorType);
+        setCursor(customCursor);
+    }
+
     @Override
     public void mousePressed(MouseEvent e) {
         startX = e.getX();
@@ -191,9 +239,15 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
             String text = JOptionPane.showInputDialog("Enter text:");
             if (text != null) {
                 g2d.setColor(currentColor); // Ensure text color is set
+                g2d.setFont(new Font("Arial", Font.PLAIN, 20));
                 g2d.drawString(text, startX, startY);
                 repaint();
             }
+        }
+
+        // Start the erasing process
+        if (currentAction.equals("Erase")) {
+            eraseAt(e.getX(), e.getY());
         }
     }
 
@@ -204,10 +258,35 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
 
         switch (currentAction) {
             case "Freehand":
+                // Nothing needed here as freehand is handled in mouseDragged
+                break;
+
             case "Line":
+                g2d.setStroke(new BasicStroke(strokeThickness));
+                g2d.drawLine(startX, startY, endX, endY);
+                currentShape = null;
+                repaint();
+                break;
+
             case "Rectangle":
+                int rectX = Math.min(startX, endX);
+                int rectY = Math.min(startY, endY);
+                int rectWidth = Math.abs(endX - startX);
+                int rectHeight = Math.abs(endY - startY);
+                g2d.setStroke(new BasicStroke(strokeThickness));
+                g2d.drawRect(rectX, rectY, rectWidth, rectHeight);
+                currentShape = null;
+                repaint();
+                break;
+
             case "Oval":
-                drawShape();
+                int ovalX = Math.min(startX, endX);
+                int ovalY = Math.min(startY, endY);
+                int ovalWidth = Math.abs(endX - startX);
+                int ovalHeight = Math.abs(endY - startY);
+                g2d.setStroke(new BasicStroke(strokeThickness));
+                g2d.drawOval(ovalX, ovalY, ovalWidth, ovalHeight);
+                currentShape = null;
                 repaint();
                 break;
 
@@ -216,65 +295,107 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
                 break;
 
             case "Erase":
-                g2d.setColor(Color.WHITE);
-                g2d.fillRect(startX - ERASER_SIZE / 2, startY - ERASER_SIZE / 2, ERASER_SIZE, ERASER_SIZE);
-                repaint();
+                // Erasing is handled in mouseDragged
                 break;
         }
     }
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        if (currentAction.equals("Freehand")) {
-            endX = e.getX();
-            endY = e.getY();
-            g2d.drawLine(startX, startY, endX, endY);
-            startX = endX;
-            startY = endY;
-            repaint();
-        } else if (currentAction.equals("Erase")) {
-            startX = e.getX();
-            startY = e.getY();
-            g2d.setColor(Color.WHITE);
-            g2d.fillRect(startX - ERASER_SIZE / 2, startY - ERASER_SIZE / 2, ERASER_SIZE, ERASER_SIZE);
-            repaint();
+        endX = e.getX();
+        endY = e.getY();
+
+        switch (currentAction) {
+            case "Freehand":
+                g2d.setStroke(new BasicStroke(strokeThickness));
+                g2d.drawLine(startX, startY, endX, endY);
+                startX = endX;
+                startY = endY;
+                break;
+
+            case "Erase":
+                eraseAt(e.getX(), e.getY());
+                break;
+
+            case "Line":
+            case "Rectangle":
+            case "Oval":
+                // Update the current shape for live preview
+                updateCurrentShape();
+                break;
         }
+
+        repaint();
     }
 
-    private void drawShape() {
-        int x = Math.min(startX, endX);
-        int y = Math.min(startY, endY);
-        int width = Math.abs(startX - endX);
-        int height = Math.abs(startY - endY);
-
+    private void updateCurrentShape() {
         switch (currentAction) {
             case "Line":
                 currentShape = new java.awt.geom.Line2D.Float(startX, startY, endX, endY);
                 break;
 
             case "Rectangle":
-                currentShape = new Rectangle(x, y, width, height);
+                int rectX = Math.min(startX, endX);
+                int rectY = Math.min(startY, endY);
+                int rectWidth = Math.abs(endX - startX);
+                int rectHeight = Math.abs(endY - startY);
+                currentShape = new Rectangle(rectX, rectY, rectWidth, rectHeight);
                 break;
 
             case "Oval":
-                currentShape = new java.awt.geom.Ellipse2D.Float(x, y, width, height);
+                int ovalX = Math.min(startX, endX);
+                int ovalY = Math.min(startY, endY);
+                int ovalWidth = Math.abs(endX - startX);
+                int ovalHeight = Math.abs(endY - startY);
+                currentShape = new java.awt.geom.Ellipse2D.Float(ovalX, ovalY, ovalWidth, ovalHeight);
                 break;
         }
+    }
 
-        if (currentShape != null) {
-            shapes.add(currentShape); // Add shape to the list
-            fillColors.add(new Color(0, 0, 0, 0)); // Initially set fill color to transparent
-        }
-        repaint();
+    private void eraseAt(int x, int y) {
+        g2d.setColor(Color.WHITE);
+        g2d.fillRect(x - eraserSize / 2, y - eraserSize / 2, eraserSize, eraserSize);
     }
 
     private void fillShape(int x, int y) {
-        for (int i = shapes.size() - 1; i >= 0; i--) {
-            if (shapes.get(i).contains(x, y)) {
-                fillColors.set(i, fillColor);
-                repaint();
-                break;
-            }
+        // Create a temporary image to perform flood fill
+        BufferedImage tempImage = new BufferedImage(canvasImage.getWidth(), canvasImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gTemp = tempImage.createGraphics();
+        gTemp.drawImage(canvasImage, 0, 0, null);
+        gTemp.dispose();
+
+        // Get the target color at the clicked point
+        int targetColor = tempImage.getRGB(x, y);
+        int replacementColor = fillColor.getRGB();
+
+        if (targetColor != replacementColor) {
+            floodFill(tempImage, x, y, targetColor, replacementColor);
+            g2d.drawImage(tempImage, 0, 0, null);
+            repaint();
+        }
+    }
+
+    private void floodFill(BufferedImage img, int x, int y, int targetColor, int replacementColor) {
+        if (x < 0 || x >= img.getWidth() || y < 0 || y >= img.getHeight()) return;
+        if (targetColor == replacementColor) return;
+
+        ArrayList<Point> stack = new ArrayList<>();
+        stack.add(new Point(x, y));
+
+        while (!stack.isEmpty()) {
+            Point p = stack.remove(stack.size() - 1);
+            int px = p.x;
+            int py = p.y;
+
+            if (px < 0 || px >= img.getWidth() || py < 0 || py >= img.getHeight()) continue;
+            if (img.getRGB(px, py) != targetColor) continue;
+
+            img.setRGB(px, py, replacementColor);
+
+            stack.add(new Point(px + 1, py));
+            stack.add(new Point(px - 1, py));
+            stack.add(new Point(px, py + 1));
+            stack.add(new Point(px, py - 1));
         }
     }
 
@@ -286,6 +407,7 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         int option = fileChooser.showSaveDialog(this);
         if (option == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
+            // Ensure the file has a .png extension
             if (!file.getName().toLowerCase().endsWith(".png")) {
                 file = new File(file.getParentFile(), file.getName() + ".png");
             }
@@ -302,26 +424,41 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         g2d.setColor(Color.WHITE);
         g2d.fillRect(0, 0, canvasImage.getWidth(), canvasImage.getHeight());
         g2d.setColor(currentColor);
+        g2d.setStroke(new BasicStroke(strokeThickness));
         shapes.clear(); // Clear the list of shapes
         fillColors.clear(); // Clear the list of fill colors
         repaint();
     }
 
     @Override
-    public void mouseMoved(MouseEvent e) {}
+    public void mouseMoved(MouseEvent e) {
+        // Optional: Implement shape size demo or other hover effects
+    }
+
     @Override
     public void mouseClicked(MouseEvent e) {}
+
     @Override
     public void mouseEntered(MouseEvent e) {}
+
     @Override
     public void mouseExited(MouseEvent e) {}
 
+    // Custom color icon class for menu items
     private class ColorIcon implements Icon {
-        private final int size = 16;
         private final Color color;
+        private final int size = 16;
 
         public ColorIcon(Color color) {
             this.color = color;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            g.setColor(color);
+            g.fillRect(x, y, size, size);
+            g.setColor(Color.BLACK);
+            g.drawRect(x, y, size, size);
         }
 
         @Override
@@ -333,17 +470,13 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
         public int getIconHeight() {
             return size;
         }
-
-        @Override
-        public void paintIcon(Component c, Graphics g, int x, int y) {
-            g.setColor(color);
-            g.fillRect(x, y, size, size);
-        }
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             EnhancedDrawingApp app = new EnhancedDrawingApp();
+            app.pack();
+            app.setLocationRelativeTo(null);
             app.setVisible(true);
         });
     }
