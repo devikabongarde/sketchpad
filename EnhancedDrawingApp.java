@@ -405,28 +405,50 @@ public void mouseDragged(MouseEvent e) {
     }
 
     @Override
-    public void mouseClicked(MouseEvent e) {
-        if (currentAction.equals("Fill Color")) {
-            fillShape(e.getX(), e.getY());
+public void mouseClicked(MouseEvent e) {
+    if (currentAction.equals("Fill Color")) {
+        fillShapeOrBackground(e.getX(), e.getY());
+    }
+}
+
+private void fillShapeOrBackground(int x, int y) {
+    int adjustedX = x * canvasImage.getWidth() / canvasPanel.getWidth();
+    int adjustedY = y * canvasImage.getHeight() / canvasPanel.getHeight();
+
+    boolean shapeFilled = false;
+
+    // Check if the click is inside any shape
+    for (int i = 0; i < shapes.size(); i++) {
+        Shape shape = shapes.get(i);
+        if (shape.contains(adjustedX, adjustedY)) {
+            Graphics2D g2 = canvasImage.createGraphics();
+            g2.setColor(fillColor);
+            g2.fill(shape);
+            g2.dispose();
+            canvasPanel.repaint();
+            shapeFilled = true;
+            break;
         }
     }
 
-    private void fillShape(int x, int y) {
-        int adjustedX = x * canvasImage.getWidth() / canvasPanel.getWidth();
-        int adjustedY = y * canvasImage.getHeight() / canvasPanel.getHeight();
+    // If no shape was clicked, fill the background
+    if (!shapeFilled) {
+        Graphics2D g2 = canvasImage.createGraphics();
+        g2.setColor(fillColor);
+        g2.fillRect(0, 0, canvasImage.getWidth(), canvasImage.getHeight());
 
-        for (int i = 0; i < shapes.size(); i++) {
-            Shape shape = shapes.get(i);
-            if (shape.contains(adjustedX, adjustedY)) {
-                Graphics2D g2 = canvasImage.createGraphics();
-                g2.setColor(fillColor);
-                g2.fill(shape);
-                g2.dispose();
-                canvasPanel.repaint();
-                break;
-            }
+        // Redraw all shapes after filling the background
+        g2.setColor(Color.BLACK); // Set the color for the shapes' outline
+        for (Shape shape : shapes) {
+            g2.draw(shape); // Draw each shape with its outline color
         }
+
+        g2.dispose();
+        canvasPanel.repaint();
     }
+}
+
+
 
     @Override
     public void mouseEntered(MouseEvent e) {
