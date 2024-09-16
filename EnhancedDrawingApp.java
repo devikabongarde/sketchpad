@@ -23,6 +23,8 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
     private Shape currentShape;
     private ArrayList<Shape> shapes = new ArrayList<>();
     private ArrayList<Color> fillColors = new ArrayList<>();
+    private ArrayList<BufferedImage> undoStack = new ArrayList<>();
+    private ArrayList<BufferedImage> redoStack = new ArrayList<>();
     private Cursor customCursor;
     private JPanel canvasPanel;
 
@@ -42,27 +44,26 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
 
         canvasPanel = new JPanel() {
             @Override
-protected void paintComponent(Graphics g) {
-    super.paintComponent(g);
-    // Draw the canvas image
-    g.drawImage(canvasImage, 0, 0, getWidth(), getHeight(), null);
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                // Draw the canvas image
+                g.drawImage(canvasImage, 0, 0, getWidth(), getHeight(), null);
 
-    // Draw shape previews
-    if (currentShape != null) {
-        Graphics2D g2 = (Graphics2D) g.create();
-        g2.setColor(currentColor);
-        g2.setStroke(new BasicStroke(strokeThickness));
-        g2.draw(currentShape);
+                // Draw shape previews
+                if (currentShape != null) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setColor(currentColor);
+                    g2.setStroke(new BasicStroke(strokeThickness));
+                    g2.draw(currentShape);
 
-        // Optionally, draw a semi-transparent fill color for the preview
-        if (fillColor.getAlpha() > 0) {
-            g2.setColor(fillColor);
-            g2.fill(currentShape);
-        }
-        g2.dispose();
-    }
-}
-    
+                    // Optionally, draw a semi-transparent fill color for the preview
+                    if (fillColor.getAlpha() > 0) {
+                        g2.setColor(fillColor);
+                        g2.fill(currentShape);
+                    }
+                    g2.dispose();
+                }
+            }
 
         };
 
@@ -132,6 +133,13 @@ protected void paintComponent(Graphics g) {
 
         bottomPanel.add(saveButton);
         bottomPanel.add(resetButton);
+        JButton undoButton = new JButton("Undo");
+        undoButton.addActionListener(this);
+        bottomPanel.add(undoButton);
+
+        JButton redoButton = new JButton("Redo");
+        redoButton.addActionListener(this);
+        bottomPanel.add(redoButton);
 
         // Eraser Size Control
         JLabel eraserLabel = new JLabel("Eraser Size:");
@@ -229,6 +237,13 @@ protected void paintComponent(Graphics g) {
                 currentAction = "Fill Color";
                 fillColor = JColorChooser.showDialog(this, "Choose Fill Color", fillColor);
                 break;
+            case "Undo":
+                undo();
+                break;
+
+            case "Redo":
+                redo();
+                break;
         }
     }
 
@@ -280,64 +295,63 @@ protected void paintComponent(Graphics g) {
     }
 
     @Override
-public void mousePressed(MouseEvent e) {
-    startX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
-    startY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
-}
-
-
-@Override
-public void mouseReleased(MouseEvent e) {
-    endX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
-    endY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
-    
-    drawShape(); // Finalize the shape drawing
-
-    // Reset the currentShape so that no preview is shown after the shape is finalized
-    currentShape = null;
-    canvasPanel.repaint();
-}
-
-
-    @Override
-public void mouseDragged(MouseEvent e) {
-    // Convert mouse coordinates to canvas coordinates
-    endX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
-    endY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
-
-    // Update currentShape based on the selected action
-    if (currentAction.equals("Freehand")) {
-        drawLine(startX, startY, endX, endY);
-        startX = endX;
-        startY = endY;
-    } else if (currentAction.equals("Erase")) {
-        erase(endX, endY);
-    } else if (currentAction.equals("Line")) {
-        currentShape = new Line2D.Double(startX, startY, endX, endY);
-    } else if (currentAction.equals("Rectangle")) {
-        int x = Math.min(startX, endX);
-        int y = Math.min(startY, endY);
-        int width = Math.abs(startX - endX);
-        int height = Math.abs(startY - endY);
-        currentShape = new Rectangle(x, y, width, height);
-    } else if (currentAction.equals("Oval")) {
-        int x = Math.min(startX, endX);
-        int y = Math.min(startY, endY);
-        int width = Math.abs(startX - endX);
-        int height = Math.abs(startY - endY);
-        currentShape = new Ellipse2D.Double(x, y, width, height);
+    public void mousePressed(MouseEvent e) {
+        startX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
+        startY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
     }
 
-    // Repaint the canvas to show the updated preview
-    canvasPanel.repaint();
-}
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        endX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
+        endY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
 
+        drawShape(); // Finalize the shape drawing
+
+        // Reset the currentShape so that no preview is shown after the shape is
+        // finalized
+        currentShape = null;
+        canvasPanel.repaint();
+    }
+
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        // Convert mouse coordinates to canvas coordinates
+        endX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
+        endY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
+
+        // Update currentShape based on the selected action
+        if (currentAction.equals("Freehand")) {
+            drawLine(startX, startY, endX, endY);
+            startX = endX;
+            startY = endY;
+        } else if (currentAction.equals("Erase")) {
+            erase(endX, endY);
+        } else if (currentAction.equals("Line")) {
+            currentShape = new Line2D.Double(startX, startY, endX, endY);
+        } else if (currentAction.equals("Rectangle")) {
+            int x = Math.min(startX, endX);
+            int y = Math.min(startY, endY);
+            int width = Math.abs(startX - endX);
+            int height = Math.abs(startY - endY);
+            currentShape = new Rectangle(x, y, width, height);
+        } else if (currentAction.equals("Oval")) {
+            int x = Math.min(startX, endX);
+            int y = Math.min(startY, endY);
+            int width = Math.abs(startX - endX);
+            int height = Math.abs(startY - endY);
+            currentShape = new Ellipse2D.Double(x, y, width, height);
+        }
+
+        // Repaint the canvas to show the updated preview
+        canvasPanel.repaint();
+    }
 
     private void drawLine(int x1, int y1, int x2, int y2) {
         g2d.drawLine(x1, y1, x2, y2);
     }
 
     private void drawShape() {
+        saveStateToUndoStack();
         switch (currentAction) {
             case "Line":
                 currentShape = new Line2D.Double(startX, startY, endX, endY);
@@ -371,8 +385,45 @@ public void mouseDragged(MouseEvent e) {
     }
 
     private void erase(int x, int y) {
+        saveStateToUndoStack();
         g2d.setColor(Color.WHITE);
         g2d.fillRect(x - eraserSize / 2, y - eraserSize / 2, eraserSize, eraserSize);
+    }
+
+    private void saveStateToUndoStack() {
+        BufferedImage currentState = new BufferedImage(canvasImage.getWidth(), canvasImage.getHeight(),
+                BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = currentState.createGraphics();
+        g2.drawImage(canvasImage, 0, 0, null);
+        g2.dispose();
+        undoStack.add(currentState);
+        redoStack.clear(); // Clear redo stack on new action
+    }
+
+    private void undo() {
+        if (!undoStack.isEmpty()) {
+            BufferedImage lastState = undoStack.remove(undoStack.size() - 1);
+            redoStack.add(copyImage(canvasImage));
+            canvasImage.getGraphics().drawImage(lastState, 0, 0, null);
+            canvasPanel.repaint();
+        }
+    }
+
+    private void redo() {
+        if (!redoStack.isEmpty()) {
+            BufferedImage lastState = redoStack.remove(redoStack.size() - 1);
+            undoStack.add(copyImage(canvasImage));
+            canvasImage.getGraphics().drawImage(lastState, 0, 0, null);
+            canvasPanel.repaint();
+        }
+    }
+
+    private BufferedImage copyImage(BufferedImage image) {
+        BufferedImage copy = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = copy.createGraphics();
+        g2.drawImage(image, 0, 0, null);
+        g2.dispose();
+        return copy;
     }
 
     private void saveDrawing() {
@@ -405,50 +456,48 @@ public void mouseDragged(MouseEvent e) {
     }
 
     @Override
-public void mouseClicked(MouseEvent e) {
-    if (currentAction.equals("Fill Color")) {
-        fillShapeOrBackground(e.getX(), e.getY());
+    public void mouseClicked(MouseEvent e) {
+        if (currentAction.equals("Fill Color")) {
+            fillShapeOrBackground(e.getX(), e.getY());
+        }
     }
-}
 
-private void fillShapeOrBackground(int x, int y) {
-    int adjustedX = x * canvasImage.getWidth() / canvasPanel.getWidth();
-    int adjustedY = y * canvasImage.getHeight() / canvasPanel.getHeight();
+    private void fillShapeOrBackground(int x, int y) {
+        int adjustedX = x * canvasImage.getWidth() / canvasPanel.getWidth();
+        int adjustedY = y * canvasImage.getHeight() / canvasPanel.getHeight();
 
-    boolean shapeFilled = false;
+        boolean shapeFilled = false;
 
-    // Check if the click is inside any shape
-    for (int i = 0; i < shapes.size(); i++) {
-        Shape shape = shapes.get(i);
-        if (shape.contains(adjustedX, adjustedY)) {
+        // Check if the click is inside any shape
+        for (int i = 0; i < shapes.size(); i++) {
+            Shape shape = shapes.get(i);
+            if (shape.contains(adjustedX, adjustedY)) {
+                Graphics2D g2 = canvasImage.createGraphics();
+                g2.setColor(fillColor);
+                g2.fill(shape);
+                g2.dispose();
+                canvasPanel.repaint();
+                shapeFilled = true;
+                break;
+            }
+        }
+
+        // If no shape was clicked, fill the background
+        if (!shapeFilled) {
             Graphics2D g2 = canvasImage.createGraphics();
             g2.setColor(fillColor);
-            g2.fill(shape);
+            g2.fillRect(0, 0, canvasImage.getWidth(), canvasImage.getHeight());
+
+            // Redraw all shapes after filling the background
+            g2.setColor(Color.BLACK); // Set the color for the shapes' outline
+            for (Shape shape : shapes) {
+                g2.draw(shape); // Draw each shape with its outline color
+            }
+
             g2.dispose();
             canvasPanel.repaint();
-            shapeFilled = true;
-            break;
         }
     }
-
-    // If no shape was clicked, fill the background
-    if (!shapeFilled) {
-        Graphics2D g2 = canvasImage.createGraphics();
-        g2.setColor(fillColor);
-        g2.fillRect(0, 0, canvasImage.getWidth(), canvasImage.getHeight());
-
-        // Redraw all shapes after filling the background
-        g2.setColor(Color.BLACK); // Set the color for the shapes' outline
-        for (Shape shape : shapes) {
-            g2.draw(shape); // Draw each shape with its outline color
-        }
-
-        g2.dispose();
-        canvasPanel.repaint();
-    }
-}
-
-
 
     @Override
     public void mouseEntered(MouseEvent e) {
