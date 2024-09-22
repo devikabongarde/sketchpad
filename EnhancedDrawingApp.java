@@ -244,6 +244,7 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
             case "Redo":
                 redo();
                 break;
+            
         }
     }
 
@@ -293,15 +294,37 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
                 return Color.BLACK;
         }
     }
+    @SuppressWarnings("unused")
+    private int getSelectedThickness() {
+        return thicknessSlider.getValue(); // Assuming a JSlider for thickness selection
+    }
 
     @Override
     public void mousePressed(MouseEvent e) {
+        if (currentAction.equals("Text")) {
+            startX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
+            startY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
+            // Add a text field to input the text
+            JTextField textField = new JTextField();
+            textField.setFont(new Font("Arial", Font.PLAIN, 24));
+            int result = JOptionPane.showConfirmDialog(this, textField, "Enter Text", JOptionPane.OK_CANCEL_OPTION);
+            if (result == JOptionPane.OK_OPTION) {
+                String text = textField.getText();
+                // Draw the text on the canvas
+                g2d.setFont(new Font("Arial", Font.PLAIN, 24));
+                g2d.drawString(text, startX, startY);
+                canvasPanel.repaint();
+            }
+        }
         startX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
         startY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
     }
 
     @Override
     public void mouseReleased(MouseEvent e) {
+        if (currentAction.equals("Text")) {
+            // Do nothing
+        }
         endX = e.getX() * canvasImage.getWidth() / canvasPanel.getWidth();
         endY = e.getY() * canvasImage.getHeight() / canvasPanel.getHeight();
 
