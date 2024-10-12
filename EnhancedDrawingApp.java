@@ -171,7 +171,112 @@ public class EnhancedDrawingApp extends JFrame implements ActionListener, MouseL
 
         // Set default cursor
         setCustomCursor(Cursor.CROSSHAIR_CURSOR);
+        addKeyboardShortcuts();
     }
+
+    private void addKeyboardShortcuts() {
+    // Get the InputMap and ActionMap for the canvasPanel
+    InputMap inputMap = canvasPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+    ActionMap actionMap = canvasPanel.getActionMap();
+
+    // Define keyboard shortcuts and corresponding actions
+
+    // Undo (Ctrl + Z)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "UndoAction");
+    actionMap.put("UndoAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            undo();
+        }
+    });
+
+    // Redo (Ctrl + Y)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "RedoAction");
+    actionMap.put("RedoAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            redo();
+        }
+    });
+
+    // Save (Ctrl + S)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK), "SaveAction");
+    actionMap.put("SaveAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            saveDrawing();
+        }
+    });
+
+    // Reset (Ctrl + R)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK), "ResetAction");
+    actionMap.put("ResetAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            resetDrawing();
+        }
+    });
+
+    // Select Freehand Tool (Ctrl + F)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), "FreehandAction");
+    actionMap.put("FreehandAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            currentAction = "Freehand";
+            setCustomCursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    });
+
+    // Select Line Tool (Ctrl + L)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK), "LineAction");
+    actionMap.put("LineAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            currentAction = "Line";
+            setCustomCursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    });
+
+    // Select Rectangle Tool (Ctrl + Shift + R)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "RectangleAction");
+    actionMap.put("RectangleAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            currentAction = "Rectangle";
+            setCustomCursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    });
+
+    // Select Oval Tool (Ctrl + O)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK), "OvalAction");
+    actionMap.put("OvalAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            currentAction = "Oval";
+            setCustomCursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    });
+
+    // Eraser Tool (Ctrl + E)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK), "EraserAction");
+    actionMap.put("EraserAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            currentAction = "Erase";
+            setCustomCursor(Cursor.HAND_CURSOR);
+        }
+    });
+
+    // Fill Color Tool (Ctrl + Shift + F)
+    inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "FillColorAction");
+    actionMap.put("FillColorAction", new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            fillColor = JColorChooser.showDialog(EnhancedDrawingApp.this, "Choose Fill Color", fillColor);
+        }
+    });
+}
+
 
     @Override
     public void actionPerformed(ActionEvent e) {
