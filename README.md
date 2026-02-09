@@ -1,2 +1,3 @@
 # sketchpad
-Simple Drawing Application
+drawing application using java
+
